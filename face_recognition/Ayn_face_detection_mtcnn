@@ -1,0 +1,112 @@
+import cv2
+import time
+from mtcnn.mtcnn import MTCNN
+#from helpers.helpers import convert_and_trim_bb
+import os
+
+
+#MTCNN and dlib for face detection, python deepface module for face recognition, Open CV for video and image processing and display/ matplotlib:
+
+#MTCNN - Multi-Task Cascaded Convolutional Neural Networks is a neural network which detects faces and facial landmarks on images. It consists of 3 neural networks connected in a cascade.
+#The MTCNN algorithm is designed to detect faces, facial landmarks, and perform face alignment in a single pipeline. It consists of three stages: face detection, facial landmark localization, and bounding box refinement.
+
+
+#Output/ result folders for extracted face and eye images
+output_faces_directory = "./images/faces"
+output_eyes_directory = "./images/eyes"
+
+os.makedirs(output_faces_directory, exist_ok=True)
+os.makedirs(output_eyes_directory, exist_ok=True)
+
+#Access our device’s camera to read a live stream of video data - passing parameter 0 tells OpenCV to use default camera on the device
+video_capture = cv2.VideoCapture(0)
+time.sleep(1)
+
+frame_count = 0
+
+#DETECTOR INITIALIZATION FOR MTCNN
+detector_mtcnn = MTCNN()
+
+while True:    
+    # Grab a single frame of video
+    #ret, check, result?
+    check, frame_image = video_capture.read()
+
+    # Bail out when the video file ends
+    if not check:
+        video_capture.release()
+        break
+
+
+    """
+    Maybe your arrays are for gray scale images are of shape [N, H, W] instead of [N, H, W, 1].
+
+    You can use data.reshape(*data.shape[:3], -1]) or data[:,:,:,None] to make sure it has 4 dimensions.
+
+    If you have a [N, H, W, 1] array and you want to make it a [N, H, W, 3] You can use data.repeat(3, axis=3)
+    
+    """
+
+    frame_count += 1
+
+    if frame_count % 15 == 0:   
+       
+        # #MTCNN detect_faces can't process grey-scale images, needs 3 values: height, width and 'channel' - possible in colored images
+        frame = cv2.cvtColor(frame_image, cv2.COLOR_BGR2RGB)    
+
+        #FACE DETECTION using MTCNN - (Using P-net - proposal Network)
+        faces_mtcnn = detector_mtcnn.detect_faces(frame)
+            #loop over the face detections
+                
+        for face in faces_mtcnn:
+            print(face)
+            x, y, w, h = map(int, face['box'])
+
+                # create green rectangle box around each face, using cordinates x & y and dimensions width & height
+            cv2.rectangle(frame_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+              # Extract the detected face from the original frame
+            detected_face_mtcnn = frame_image[y:y+h, x:x+w]
+            detected_face_mtcnn = cv2.resize(detected_face_mtcnn, (200,200))
+                
+                #SAVING DETECTED FACES
+                
+            face_filename = f"face_{frame_count}.jpg"
+            face_filepath = os.path.join(output_faces_directory, face_filename)
+            cv2.imwrite(face_filepath, detected_face_mtcnn)
+
+                #MTCNN FACE LANDMARKS
+            for key,  value in face["keypoints"].items():
+                # create and draw dot
+                cv2.circle(frame_image, value, 2, (0, 0, 255), -1)
+                              
+                
+        #show the plot 
+        cv2.imshow('Face Detection', frame_image)
+        cv2.waitKey(1)
+
+
+
+        """
+        1.waitKey(0) will display the window infinitely until any keypress (it is suitable for image display).
+
+        2.waitKey(1) will display a frame for 1 ms, after which display will be automatically closed. Since the OS has a minimum time between switching threads, the function will not wait exactly 1 ms, it will wait at least 1 ms, depending on what else is running on your computer at that time.
+
+        So, if you use waitKey(0) you see a still image until you actually press something while for waitKey(1) the function will show a frame for at least 1 ms only.
+         
+        """
+
+         # *********************************************************************
+        #   THINGS TO IMPLEMENT
+
+"""
+Get users unique id to attach to corresponding face and eyes
+Should extract eyes and face on the first two/ 5 frames to avoid too much 'data collection'/ extract in motion not at rest
+Resize images if needed -> image = imutils.resize(image, width=500)
+Ensure varrying light and head poses are accommodated
+Make the code more efficient through classes and functions 
+
+
+Create a 'dataset/ faces' directory where all faces will be stored with their respective user ids for training, face identification and verification
+"""
+      
